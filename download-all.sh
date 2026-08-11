@@ -129,13 +129,17 @@ for pair in "torch:${TORCH_VERSION}" "torchvision:${TORCHVISION_VERSION}"; do
     pkg="${pair%%:*}"
     ver="${pair#*:}"
     whl="${pkg}-${ver}+cpu-${PYTHON_CP}-${PYTHON_CP}-manylinux_2_28_${ARCH}.whl"
+    # URL-encode the '+' in the filename: pytorch.org's CDN rejects literal '+'
+    # in the path (treats it as a space) and returns 403, but accepts %2B.
+    # The local filename keeps the literal '+' (PEP 427 wheel naming).
+    whl_url="${pkg}-${ver}%2Bcpu-${PYTHON_CP}-${PYTHON_CP}-manylinux_2_28_${ARCH}.whl"
 
     if [ -f "downloads/${whl}" ]; then
         echo "[ ] ${pkg} wheel already cached: downloads/${whl}"
         continue
     fi
 
-    url="https://download.pytorch.org/whl/cpu/${whl}"
+    url="https://download.pytorch.org/whl/cpu/${whl_url}"
     echo "    ${pkg} ${ver} (${ARCH}) ..."
 
     download_wheel "${url}" "downloads/${whl}" || exit 1
