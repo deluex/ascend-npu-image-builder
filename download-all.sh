@@ -48,25 +48,29 @@ download_file() {
     local output="$2"
     local referer="${3:-}"     # optional Referer header (required by OBS)
     local temp="${output}.tmp"
-    local errlog="${output}.err"
 
     for ((round = 1; round <= 4; round++)); do
         if ((round % 2 == 1)); then
-            local cmd=(wget --progress=dot:giga --tries=3 -c)
+            # wget: -O = output file (capital O), -c = resume
+            # --progress=bar:force shows a real progress bar (like curl) instead
+            # of dot-style output; redirected to stderr so it survives pipes.
+            local cmd=(wget --progress=bar:force --tries=3 -c -O "${temp}")
             [ -n "$referer" ] && cmd+=(--header="Referer: ${referer}")
+            cmd+=("${url}")
         else
-            local cmd=(curl -fL --progress-bar --retry 3 -C -)
+            # curl: -o = output, -f = fail on HTTP >= 400, -C - = resume, -L = follow
+            local cmd=(curl -fL --progress-bar --retry 3 -C - -o "${temp}")
             [ -n "$referer" ] && cmd+=(-H "Referer: ${referer}")
+            cmd+=("${url}")
         fi
 
-        if "${cmd[@]}" "${url}" -o "${temp}" 2>"${errlog}"; then
-            rm -f "${errlog}"
+        if "${cmd[@]}"; then
             mv "${temp}" "${output}"
             return 0
         fi
 
-        echo "    attempt ${round}/4 failed: $(tail -1 "${errlog}" 2>/dev/null || true)"
-        rm -f "${temp}" "${errlog}"
+        echo "    attempt ${round}/4 failed, retrying ..."
+        rm -f "${temp}"
         sleep 5
     done
 
