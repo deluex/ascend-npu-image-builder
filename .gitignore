@@ -1,0 +1,13 @@
+# Build cache directory
+downloads/
+
+# Container working directories
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
