@@ -53,12 +53,22 @@ ENV PATH=${PYTHON_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${PYTHON_HOME}/lib:${LD_LIBRARY_PATH}
 
 # 1. Replace APT sources. Ubuntu 24.04 uses the deb822 format
-#    (/etc/apt/sources.list.d/ubuntu.sources), then install build deps + tools.
+#    (/etc/apt/sources.list.d/ubuntu.sources). On amd64 the upstream URIs are
+#    archive.ubuntu.com/ubuntu and security.ubuntu.com/ubuntu; on arm64 they are
+#    ports.ubuntu.com/ubuntu-ports and security.ubuntu.com/ubuntu-ports.
+#    Substitute both variants so the same command works on either arch, then
+#    install build deps + tools.
 #    The driver (HDK) is intentionally NOT installed: it is not needed to
 #    build or to install CANN, and at runtime it comes from the host.
-RUN sed -i \
-        -e "s|http://archive.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" \
-        -e "s|http://security.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" \
+RUN ARCH=$(uname -m) \
+    && case "$ARCH" in \
+         x86_64) UB_MIRROR="${APT_MIRROR}/ubuntu";        UB_UP="archive.ubuntu.com/ubuntu" ;; \
+         aarch64) UB_MIRROR="${APT_MIRROR}/ubuntu-ports"; UB_UP="ports.ubuntu.com/ubuntu-ports" ;; \
+         *) echo "Unsupported arch: $ARCH"; exit 1 ;; \
+       esac \
+    && sed -i \
+        -e "s|http://${UB_UP}|http://${UB_MIRROR}|g" \
+        -e "s|http://security.ubuntu.com/ubuntu|http://${UB_MIRROR}|g" \
         /etc/apt/sources.list.d/ubuntu.sources \
     && rm -f /etc/apt/sources.list \
     && apt-get update \
@@ -180,10 +190,17 @@ ENV PATH=${ASCEND_TOOLKIT_LATEST_HOME}/bin:${ASCEND_TOOLKIT_LATEST_HOME}/tools/c
 ENV PYTHONPATH=${ASCEND_TOOLKIT_LATEST_HOME}/python/site-packages:${ASCEND_TOOLKIT_LATEST_HOME}/opp/built-in/op_impl/ai_core/tbe:${ASCEND_TOOLKIT_HOME}/python/site-packages:${ASCEND_TOOLKIT_HOME}/opp/built-in/op_impl/ai_core/tbe:${PYTHONPATH}
 ENV LD_LIBRARY_PATH=/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:${ASCEND_TOOLKIT_LATEST_HOME}/lib64:${ASCEND_TOOLKIT_LATEST_HOME}/lib64/plugin/opskernel:${ASCEND_TOOLKIT_LATEST_HOME}/lib64/plugin/nnengine:${ASCEND_TOOLKIT_LATEST_HOME}/opp/built-in/op_impl/ai_core/tbe/op_tiling:${ASCEND_TOOLKIT_LATEST_HOME}/tools/aml/lib64:${ASCEND_TOOLKIT_LATEST_HOME}/tools/aml/lib64/plugin:${ATB_HOME_PATH}/lib:${PYTHON_HOME}/lib:${SITE_PACKAGES}/torch/lib:${SITE_PACKAGES}/torch_npu/lib:${LD_LIBRARY_PATH}
 
-# Common tools (incl. g++, pkill/pskill)
-RUN sed -i \
-        -e "s|http://archive.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" \
-        -e "s|http://security.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" \
+# Common tools (incl. g++, pkill/pskill). APT source replacement mirrors stage 1
+# (handles both amd64 archive.ubuntu.com and arm64 ports.ubuntu.com paths).
+RUN ARCH=$(uname -m) \
+    && case "$ARCH" in \
+         x86_64) UB_MIRROR="${APT_MIRROR}/ubuntu";        UB_UP="archive.ubuntu.com/ubuntu" ;; \
+         aarch64) UB_MIRROR="${APT_MIRROR}/ubuntu-ports"; UB_UP="ports.ubuntu.com/ubuntu-ports" ;; \
+         *) echo "Unsupported arch: $ARCH"; exit 1 ;; \
+       esac \
+    && sed -i \
+        -e "s|http://${UB_UP}|http://${UB_MIRROR}|g" \
+        -e "s|http://security.ubuntu.com/ubuntu|http://${UB_MIRROR}|g" \
         /etc/apt/sources.list.d/ubuntu.sources \
     && rm -f /etc/apt/sources.list \
     && apt-get update \
